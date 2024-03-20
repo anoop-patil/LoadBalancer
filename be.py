@@ -1,17 +1,15 @@
-import socket
+import asyncio
 from abc import ABC, abstractmethod
 
 
-# Define an abstract class for handling client requests
 class RequestHandler(ABC):
     @abstractmethod
-    def handle_request(self, request_data):
+    async def handle_request(self, request_data):
         pass
 
 
-# Implement a specific request handler
 class HTTPRequestHandler(RequestHandler):
-    def handle_request(self, request_data):
+    async def handle_request(self, request_data):
         http_response = """\
 HTTP/1.1 200 OK
 
@@ -26,37 +24,36 @@ class Server:
         self.port = port
         self.request_handler = request_handler
 
-    def start(self):
-        with socket.socket(
-            socket.AF_INET, socket.SOCK_STREAM
-        ) as server_socket:
-            server_socket.bind((self.host, self.port))
-            server_socket.listen(5)
-            print(f"Server listening on {self.host}:{self.port}...")
+    async def start(self):
+        server = await asyncio.start_server(
+            self.handle_client_connection, self.host, self.port
+        )
+        addr = server.sockets[0].getsockname()
+        print(f"Serving on {addr}")
 
-            while True:
-                client_socket, address = server_socket.accept()
-                print(f"Accepted connection from {address[0]}")
-                self.handle_client_connection(client_socket)
+        async with server:
+            await server.serve_forever()
 
-    def handle_client_connection(self, client_socket):
-        try:
-            request = client_socket.recv(1024)
-            print(f"Received request:\n{request.decode('utf-8')}")
-            response = self.request_handler.handle_request(request)
-            client_socket.sendall(response)
-            print("Replied with a hello message")
-        finally:
-            client_socket.close()
+    async def handle_client_connection(self, reader, writer):
+        data = await reader.read(1024)
+        address = writer.get_extra_info("peername")
+        print(f"Accepted connection from {address[0]}")
+        print(f"Received request:\n{data.decode('utf-8')}")
+
+        response = await self.request_handler.handle_request(data)
+        writer.write(response)
+        await writer.drain()
+        print("Replied with a hello message")
+        writer.close()
 
 
-def main():
+async def main():
     host = "localhost"
     port = 8080
     request_handler = HTTPRequestHandler()
     server = Server(host, port, request_handler)
-    server.start()
+    await server.start()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

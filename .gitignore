@@ -1,2 +1,4 @@
 .idea/
 __pycache__
+scrape.py
+anoop_factory.py

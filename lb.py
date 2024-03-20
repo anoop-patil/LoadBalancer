@@ -67,27 +67,15 @@ class ProxyServer:
         await server.wait_closed()
 
 
-def main():
+async def main():
     host = "localhost"
     port = 80
     backend_host = "localhost"
     backend_port = 8080
 
     proxy_server = ProxyServer(host, port, backend_host, backend_port)
-    loop = asyncio.get_event_loop()
-
-    # Schedule the proxy server start coroutine
-    server_task = loop.create_task(proxy_server.start())
-
-    try:
-        loop.run_forever()
-    except KeyboardInterrupt:
-        # Shut down the server
-        server_task.cancel()
-        loop.run_until_complete(server_task)
-    finally:
-        loop.close()
+    await proxy_server.start()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
